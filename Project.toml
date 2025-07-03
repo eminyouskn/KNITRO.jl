@@ -5,6 +5,8 @@ version = "0.14.8"
 
 [deps]
 Libdl = "8f399da3-3557-5675-b5ff-fb832c97cbdb"
+Random = "9a3f8284-a2c9-5f02-9a11-845980a1fd5c"
+Dates = "ade2ca70-3891-5945-98fb-dc099432e06a"
 
 [weakdeps]
 MathOptInterface = "b8f27783-ece8-5eb3-8dc8-9495eed66fee"
@@ -13,9 +15,11 @@ MathOptInterface = "b8f27783-ece8-5eb3-8dc8-9495eed66fee"
 KNITROMathOptInterfaceExt = ["MathOptInterface"]
 
 [compat]
+Dates = "1.11.0"
 Libdl = "1"
 MathOptInterface = "1.17"
 Printf = "1"
+Random = "1.11.0"
 SparseArrays = "1"
 Test = "1"
 julia = "1.9"
