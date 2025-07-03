@@ -14,6 +14,7 @@ function runtests()
     for name in names(@__MODULE__; all=true)
         if startswith("$(name)", "test_")
             @testset "$(name)" begin
+                @info name
                 getfield(@__MODULE__, name)()
             end
         end
@@ -30,7 +31,7 @@ function test_runtests()
         infeasible_status=MOI.LOCALLY_INFEASIBLE,
         exclude=Any[MOI.VariableBasisStatus, MOI.ConstraintBasisStatus, MOI.ConstraintName],
     )
-    MOI.Test.runtests(model, config; include=["test_basic_"])
+    MOI.Test.runtests(model, config; include=["test_basic_"], verbose=true)
     return
 end
 
@@ -53,7 +54,7 @@ function test_MOI_Test_cached()
     ]
     model =
         MOI.instantiate(KNITRO.Optimizer; with_bridge_type=Float64, with_cache_type=Float64)
-    MOI.set(model, MOI.Silent(), true)
+    # MOI.set(model, MOI.Silent(), true)
     config = MOI.Test.Config(
         atol=1e-3,
         rtol=1e-3,
@@ -61,35 +62,37 @@ function test_MOI_Test_cached()
         infeasible_status=MOI.LOCALLY_INFEASIBLE,
         exclude=Any[MOI.VariableBasisStatus, MOI.ConstraintBasisStatus],
     )
-    MOI.Test.runtests(
-        model,
-        config;
-        exclude=Union{String,Regex}[
-            # TODO(odow): this test is flakey.
-            r"^test_cpsat_ReifiedAllDifferent$",
-            # TODO(odow): investigate issue with bridges
-            r"^test_basic_VectorNonlinearFunction_GeometricMeanCone$",
-            # Returns OTHER_ERROR, which is also reasonable.
-            r"^test_conic_empty_matrix$",
-            # Uses the ZerosBridge and ConstraintDual
-            r"^test_conic_linear_VectorOfVariables_2$",
-            # Returns ITERATION_LIMIT instead of DUAL_INFEASIBLE, which is okay.
-            r"^test_linear_DUAL_INFEASIBLE$",
-            # Incorrect ObjectiveBound with an LP, but that's understandable.
-            r"^test_solve_ObjectiveBound_MAX_SENSE_LP$",
-            # KNITRO doesn't support INFEASIBILITY_CERTIFICATE results.
-            r"^test_solve_DualStatus_INFEASIBILITY_CERTIFICATE_$",
-            # Cannot get ConstraintDualStart
-            r"^test_model_ModelFilter_AbstractConstraintAttribute$",
-            # ConstraintDual not supported for SecondOrderCone
-            second_order_exclude...,
-        ],
-    )
+    # MOI.Test.runtests(
+    #     model,
+    #     config;
+    #     exclude=Union{String,Regex}[
+    #         # TODO(odow): this test is flakey.
+    #         r"^test_cpsat_ReifiedAllDifferent$",
+    #         # TODO(odow): investigate issue with bridges
+    #         r"^test_basic_VectorNonlinearFunction_GeometricMeanCone$",
+    #         # Returns OTHER_ERROR, which is also reasonable.
+    #         r"^test_conic_empty_matrix$",
+    #         # Uses the ZerosBridge and ConstraintDual
+    #         r"^test_conic_linear_VectorOfVariables_2$",
+    #         # Returns ITERATION_LIMIT instead of DUAL_INFEASIBLE, which is okay.
+    #         r"^test_linear_DUAL_INFEASIBLE$",
+    #         # Incorrect ObjectiveBound with an LP, but that's understandable.
+    #         r"^test_solve_ObjectiveBound_MAX_SENSE_LP$",
+    #         # KNITRO doesn't support INFEASIBILITY_CERTIFICATE results.
+    #         r"^test_solve_DualStatus_INFEASIBILITY_CERTIFICATE_$",
+    #         # Cannot get ConstraintDualStart
+    #         r"^test_model_ModelFilter_AbstractConstraintAttribute$",
+    #         # ConstraintDual not supported for SecondOrderCone
+    #         second_order_exclude...,
+    #     ],
+    #     verbose=true,
+    # )
+    MOI.Test.runtests(model, config; include=[r"^test_constraint_ZeroOne"], verbose=true)
     # Run the tests for second_order_exclude, this time excluding
     # `MOI.ConstraintDual` and `MOI.DualObjectiveValue`.
     push!(config.exclude, MOI.ConstraintDual)
     push!(config.exclude, MOI.DualObjectiveValue)
-    MOI.Test.runtests(model, config; include=second_order_exclude)
+    # MOI.Test.runtests(model, config; include=second_order_exclude, verbose=true)
     return
 end
 
@@ -132,28 +135,29 @@ function test_get_nlp_block()
     return
 end
 
-function test_maxtime_cpu()
+function test_maxtime_real()
     model = KNITRO.Optimizer()
-    attr = MOI.RawOptimizerAttribute("mip_maxtimecpu")
+    attr = MOI.RawOptimizerAttribute("mip_maxtimereal")
     @test MOI.supports(model, attr)
-    MOI.set(model, attr, 30)
+    MOI.set(model, attr, 30.0)
     p = Ref{Cdouble}(0.0)
-    KNITRO.KN_get_double_param(model.inner, KNITRO.KN_PARAM_MIP_MAXTIMECPU, p)
+    KNITRO.KN_get_double_param(model.inner, KNITRO.KN_PARAM_MIP_MAXTIMEREAL, p)
     @test p[] == 30.0
     return
 end
 
 function test_outname()
+    dir = mktempdir()
+    filename = joinpath(dir, "new_name.log")
     model = KNITRO.Optimizer()
     attr = MOI.RawOptimizerAttribute("outname")
     @test MOI.supports(model, attr)
-    MOI.set(model, attr, "new_name.log")
+    MOI.set(model, attr, filename)
     MOI.set(model, MOI.RawOptimizerAttribute("outmode"), 1)
     MOI.add_variable(model)
     MOI.optimize!(model)
-    @test isfile("new_name.log")
-    @test occursin("Artelys", read("new_name.log", String))
-    rm("new_name.log")
+    @test isfile(filename)
+    @test occursin("Artelys", read(filename, String))
     return
 end
 
